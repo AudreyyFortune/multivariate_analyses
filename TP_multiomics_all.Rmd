@@ -1,6 +1,6 @@
 ---
 title: "TP \"Multi-omics\""
-author: "Audrey Fortune (M2 BI) & Pierre Guyomard (M2 IPFB)"
+authors: "Audrey Fortune (M2 BI) & Pierre Guyomard (M2 IPFB)"
 date: "20 - 21 octobre 2020"
 output: pdf_document
 ---
@@ -205,7 +205,7 @@ composante1[1]
 composante2[1]
 ```
 Les gènes que nous avons sélectionnés sur la composante 1 sont les suivants : KDM4B, ZNF552, PREX1, TTC39A, STC2, LRIG1, C4orf34, MTL5, FUT8, SLC19A2.
-Les gènes que nous avons sélectionnés sur la composante 2 sont les suivants :APBB1IP, NCF4, FLI1, C1orf162, CSF1R.  
+Les gènes que nous avons sélectionnés sur la composante 2 sont les suivants : APBB1IP, NCF4, FLI1, C1orf162, CSF1R.  
 
 
 ## 2. Projection on Latent Structures
@@ -214,10 +214,10 @@ Les gènes que nous avons sélectionnés sur la composante 2 sont les suivants :
 ```{r}
 pls <- pls(X = mrna_filtered, Y = prot_filtered, ncomp = 3)
 plotVar(pls, cex = c(2,2))
-# plotIndiv(pls)
+plotIndiv(pls)
 ```
-bcp prot au centre
-+ de gene que de miRna
+Nous remarquons qu'avec le plotVar, les protéines sont au centre.
+
 
 **Question 10:** A quoi sert la régression PLS pour l'intégration multi-omique?
 
@@ -228,16 +228,19 @@ L'avantage de cet régression est de bien s'accommoder en données manquantes. L
 2. Affichez un *scatter plot* des échantillons en affichant uniquement les composantes 2 et 3.
 Les échantillons doivent être coloriés par groupe. Ajoutez une légende et un titre.
 ```{r}
-plot(acp$x[,2],acp$x[,3], main = "Analyses en Composantes Principales de PC2 et PC3", xlab = "PC2", ylab = "PC3", pch = 19, col = col)
-legend("topright", legend = c("Groupe 1", "Groupe 2", "Groupe 3"), fill = c(1,2,3), cex = 0.75)
+par(mfrow = c(1,2))
+plot(pls$loadings$X[,2], pls$loadings$X[,3], pch = 19, col = col, xlab = "PC2", ylab = "PC3", main = "Plot des mrna")
+legend("topright", legend = c("Groupe 1", "Groupe 2", "Groupe 3"), fill = c(1,2,3), cex = 0.5)
+plot(pls$loadings$Y[,2], pls$loadings$Y[,3], pch = 19,col = col, xlab = "PC2", ylab = "PC3", main = "Plot des protéines")
+legend("topright", legend = c("Groupe 1", "Groupe 2", "Groupe 3"), fill = c(1,2,3), cex = 0.5)
+
 ```
 
 
 3. Affichez un *arrow plot* en affichant uniquement les composantes 1 et 3.
 Les flèches doivent être coloriés par groupe. Ajoutez une légende et un titre.
 ```{r}
-plotArrow(pls$x[,1],pls$x[,3]) #, main = "", xlab = "PC2", ylab = "PC3", pch = 19, col = col)
-plotArrow(pls, abline = TRUE)
+plotArrow(pls, group = sample_group$Y, legend = TRUE, comp = c(1,3), X.label = 'PLS composante 1', Y.label = 'PLS composante 3', title = "Echantillons des composantes 1 et 3")
 ```
 
 
@@ -245,27 +248,73 @@ plotArrow(pls, abline = TRUE)
 ```{r}
 spls <- spls(X = mrna_filtered, Y = prot_filtered, ncomp = 3, keepX = c(10,5,1), keepY = c(9,5,1))
 spls
+plotVar(spls, cex = c(3,3))
+plotIndiv(spls) 
+plotLoadings(spls) 
 ```
 
 
-
 **Question 11:** Quels sont les variables sélectionnées sur la troisième composante.
+```{r}
+spls_comp3 <- selectVar(spls,comp = 3) 
+spls_comp3$X$name
+spls_comp3$Y$name
+```
+Les variables sélectionnées sur la troisième composante sont le gène C1QB et la protéine Caspase.7_cleavedD198.
 
 5. Affichez un *CIM plot* à partir du modèle *sPLS*.
 
+```{r}
+cim(spls, comp = 1, margins = c(5, 5), scale = TRUE, legend = TRUE)
+# Pour avoir l'image, il faut lancer la ligne de code dans la console de R directement.
+```
+
+
 **Question 12:** Quels sont les gènes et les protéines les plus corrélés? Justifiez à partir de la matrice de corrélation calculée par `cim()`.
+```{r}
+cim_spls$mat
+```
+Les paires les plus corrélées sont : PREX1 et ER.alpha, KDM4B et ER.alpha, ZNF552 et ER.alpha, KDM4B et GATA3 (car supérieur à 0.70).
 
 6. Toujours à partir du même modèle *sPLS*, affichez un *network plot* en affichant uniquement les les corrélations les plus forte $(\rho \pm 0.65)$.
+```{r}
+network(spls, show.color.key = TRUE, cutoff = c(0.65), lwd.edge = 4, color.node = c(2,3))
+# Pour avoir l'image, il faut lancer la ligne de code dans la console de R directement.
+```
 
 **Question 13:** Combien de clusters / sous-graphes observés vous ?
+Nous pouvons observer qu'un seul cluster. 
 
 ## 2. *multiblock* Projection on Latent Structures
 
 1. Réalisez une multiblock PLS `pls()` avec les données mRNA, protéines et miRNA `(X = list(mrna, prot), Y = mirna)` en incluant 2 composantes `(ncomp = 2)`.
+```{r}
+X = list()
+X$mrna = mrna
+X$protein = protein
+multiblock_pls <- block.pls(X=X, Y=as.matrix(mirna), ncomp = 2)  
+multiblock_pls
+```
 
 2. Comme la `spls()`, la `block.spls()` implémente une étape de *feature selection*. En utilisant la documentation de la fonction et/ou l'aide disponible en ligne,  utilisez la fonction de manière a sélectionner (10 gènes, 9 protéines, 7 miRNA) sur la première composante et (5 gènes, 4 protéines, 3 miRNA) sur la seconde composante.
+```{r}
+keepX = list()
+keepX$mrna = c(10,5)
+keepX$protein = c(9,4)
+block_spls <- block.spls(X = X, Y = as.matrix(mirna), ncomp = 2,keepX = keepX,keepY = c(7,3))
+block_spls
+```
 
 **Question 14:** Quels sont les variables sélectionnées sur la première composante.
+```{r}
+block_comp1 <- selectVar(block_spls,comp = 1) 
+block_comp1$mrna$name
+block_comp1$protein$name
+block_comp1$Y$name
+```
+Les variables sélectionnées sur la première composante sur les gènes sont : CCNA2, ASPM, ZNF552, FUT8, NCAPG2, C4orf34, LRIG1, E2F1, MEX3A et NTN4.
+Les variables sélectionnées sur la première composante sur les protéines sont : Cyclin_B1, Cyclin_E1, ASNS, ER.alpha, GATA3, AR, CDK1, JNK2 et Chk2.
+Les variables sélectionnées sur la première composante sur les mirna sont : hsa.mir.17, hsa.mir.20a, hsa.mir.93, hsa.mir.106b, hsa.mir.130b, hsa.mir.106a et hsa.mir.590.
 
 ## 3. Analyse supervisée : (s)PLS-DA
 
@@ -274,22 +323,56 @@ Le fichier `sample_groupe.csv` associe un groupe à chaque échantillon.
 **Question 15:** Donnez la répartition des groupes.
 
 1. Utilisez la `pls.da()` en utilisant les gènes (`X`) et le groupe (`Y`) avec 2 composantes.
+```{r}
+pls_da <- plsda(as.matrix(mrna),sample_group$Y,ncomp = 2)
+```
 
 2. Affichez le graphe des échantillons.
+```{r}
+plotIndiv(pls_da, ind.names = TRUE, ellipse = TRUE, legend = TRUE)
+```
 
 **Question 16:** Comparez ce graphe avec le graphe des échantillons obtenu avec l'ACP (1.3). Quel méthode permet d'obtenir de meilleurs clusters?
+La `pls.da()` permet une meilleure clusterisation que l'ACP car il y a une meilleure séparation des groupes sur l'axe 2. De plus, il y a une meilleur repartition de clusters.
 
 ## 4. Analyse supervisée : block-(s)PLS-DA
 
 1. Réalisez une multiblock sPLS-DA `block.splsda()` avec les données mRNA, protéines, miRNA `(X = list(mrna, prot, mirna))` et le groupe en incluant 5 composantes `(ncomp = 5)`.
+```{r}
+X = list()
+X$mrna = mrna
+X$protein = protein
+X$mirna = mirna
+block_plsda <- block.splsda(X = X, Y = sample_group$Y, ncomp = 5)
+```
 
 2. Utiliser la fonction `perf()` sur le modèle obtenu. 
+```{r}
+perf <- perf(block_plsda) 
+plot(perf)
+```
 
 **Question 17:** Quelle serait le nombre de composante minimal à inclure ?
+D'après le graphique, le nombre minimale de composante à inclure est de 3. En effet, tous les lignes du graphiques descendent à ce nombre.
 
 3. Relancez le modèle avec 2 composantes et utilisez l'option `keepX` pour sélectionner 15 gènes, protéines et miRNA sur la première compoante et 10 gènes, protéines et miRNA sur la seconde composante.
+```{r}
+X = list()
+X$mrna = mrna
+X$protein = protein
+X$mirna = mirna
+keepX = list()
+keepX$mrna = c(15,10)
+keepX$protein = c(15,10)
+keepX$mirna = c(15,10)
+block_plsda2 <- block.splsda(X = X, Y = sample_group$Y, ncomp = 2, keepX = keepX)
+```
 
 4. Réalisez un *circos plot* avec le modèle obtenu en affichant les corrélations fortes $|\rho| > 0.5$. Ajoutez un titre.
+```{r}
+circosPlot(block_plsda2, cutoff = 0.5, legend = TRUE)
+title(main = "Circos plot")
+```
 
 ---
 
@@ -309,9 +392,20 @@ cibler les bonnes approches multiomiques.
    de deux enfants) ainsi qu'à diverses mesures cliniques numériques pour tous
    les échantillons.
 
+L'approche analytique à privilégier ici est l'analyse pls multiblocks. En effet, le mieux serait d'uiliser une approche non supervisée : soit l'ACP, soit le PLS. 
+La PLS multiblocks serait le plus adapté car il permet de traiter des données telles que les données transcriptomiques ou encore les diverses mesures cliniques.
+
+
 2. Vous travaillez sur un modèle murin et vous souhaitez comprendre les impacts
    d'un traitement sur le microbiote. Vous avez accès à des données de
    séquençage de type 16S ainsi qu'à des données de métabolomiques pour des
    souris traitées et pour des souris non-traitées. Vous pouvez prendre pour
    acquis que l'analyse primaire des données de métabolomiques a déjà été
    complétées et que vous avez déjà accès aux décomptes pour chaque molécules.
+
+L'approche analytique à privilégier ici est l'analyse supervisée, car nous avons une connaissance préalable de notre jeu de données. 
+Par ailleurs, nous disposons de differents types des données : le sequencage de type 16 s et les données métabolomiques.
+Nous avons aussi différents groupes de souris : traités et non traités. 
+L'approche analytique la plus efficace pour cette experience est block(s)-PLS-DA qui clusterise l'ensemble des données, mais ne se basant seulement sur un seul type de donnée.
+
+---
